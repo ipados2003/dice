@@ -1,10 +1,14 @@
 package foo;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
 
 import com.google.api.server.spi.auth.common.User;
 import com.google.api.server.spi.config.Api;
@@ -38,18 +42,17 @@ import com.google.appengine.api.datastore.Transaction;
 
 @Api(name = "myApi",
      version = "v1",
-     audiences = "927375242383-t21v9ml38tkh2pr30m4hqiflkl3jfohl.apps.googleusercontent.com",
-  	 clientIds = {"927375242383-t21v9ml38tkh2pr30m4hqiflkl3jfohl.apps.googleusercontent.com",
-        "927375242383-jm45ei76rdsfv7tmjv58tcsjjpvgkdje.apps.googleusercontent.com"},
+     audiences = "937678570769-8ii2bfomkl5h3t3k2urtsng5i4fdcbcj.apps.googleusercontent.com",
+     clientIds = {"937678570769-8ii2bfomkl5h3t3k2urtsng5i4fdcbcj.apps.googleusercontent.com",
+                   "927375242383-jm45ei76rdsfv7tmjv58tcsjjpvgkdje.apps.googleusercontent.com"},
      namespace =
      @ApiNamespace(
-		   ownerDomain = "helloworld.example.com",
-		   ownerName = "helloworld.example.com",
-		   packagePath = "")
+           ownerDomain = "helloworld.example.com",
+           ownerName = "helloworld.example.com",
+           packagePath = "")
      )
 
 public class ScoreEndpoint {
-
 
 	Random r = new Random();
 
@@ -60,13 +63,22 @@ public class ScoreEndpoint {
 	}
 
 	@ApiMethod(name = "hello", httpMethod = HttpMethod.GET)
-	public User Hello(User user) throws UnauthorizedException {
-        if (user == null) {
+	public User Hello(User user, HttpServletRequest request) throws UnauthorizedException {
+		if (user == null) {
 			throw new UnauthorizedException("Invalid credentials");
 		}
-        System.out.println("Yeah:"+user.toString());
+
+		// Récupération du nom donné depuis le payload JWT
+		String givenName = request.getParameter("given_name");
+
+		HttpSession session = request.getSession();
+		session.setAttribute("user", user);
+		session.setAttribute("givenName", givenName);  
+		System.out.println(givenName);
+		System.out.println("Yeah: " + user.toString());
 		return user;
 	}
+
 
 
 	@ApiMethod(name = "scores", httpMethod = HttpMethod.GET)
@@ -90,8 +102,16 @@ public class ScoreEndpoint {
 	}
 
 	@ApiMethod(name = "myscores", httpMethod = HttpMethod.GET)
-	public List<Entity> myscores(@Named("name") String name) {
-		Query q = new Query("Score").setFilter(new FilterPredicate("name", FilterOperator.EQUAL, name)).addSort("score",
+	public List<Entity> myscores(HttpServletRequest request) {
+		HttpSession session = request.getSession();
+		User user = (User) session.getAttribute("user");
+		if (user == null) {
+			return new ArrayList<>();
+		}
+		String givenName = (String) session.getAttribute("givenName");
+		//Query q = new Query("Score").addSort("score", SortDirection.DESCENDING);
+
+		Query q = new Query("Score").setFilter(new FilterPredicate("name", FilterOperator.EQUAL, givenName)).addSort("score",
 				SortDirection.DESCENDING);
         //Query q = new Query("Score").setFilter(new FilterPredicate("name", FilterOperator.EQUAL, name));
 
@@ -102,13 +122,15 @@ public class ScoreEndpoint {
 	}
 
 	@ApiMethod(name = "addScore", httpMethod = HttpMethod.GET)
-	public Entity addScore(User user,@Named("score") int score, @Named("name") String name) throws UnauthorizedException {
-		if (user == null) {
-			throw new UnauthorizedException("Invalid credentials");
-		}		
-
-		Entity e = new Entity("Score", "" + name + score);
-		e.setProperty("name", user.toString());
+	public Entity addScore(HttpServletRequest request, @Named("score") int score, @Named("name") String name) throws UnauthorizedException {
+		HttpSession session = request.getSession();
+		User user = (User) session.getAttribute("user");
+		String givenName = (String) session.getAttribute("givenName");
+		
+		String userName = (user != null) ? givenName : name;
+		
+		Entity e = new Entity("Score", "" + userName + score);
+		e.setProperty("name", userName);
 		e.setProperty("score", score);
 
 		DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
@@ -116,6 +138,7 @@ public class ScoreEndpoint {
 
 		return e;
 	}
+
 
 	@ApiMethod(name = "postMessage", httpMethod = HttpMethod.POST)
 	public Entity postMessage(PostMessage pm) {
