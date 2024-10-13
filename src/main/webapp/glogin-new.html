@@ -16,6 +16,7 @@
     <script>
     function handleCredentialResponse(response) {
       console.log("callback called:" + response.credential);
+      sessionStorage.setItem('user', response.credential);
       const responsePayload = jwt_decode(response.credential);
 
       console.log("ID: " + responsePayload.sub);
@@ -25,7 +26,6 @@
       console.log("Image URL: " + responsePayload.picture);
       console.log("Email: " + responsePayload.email);
 
-      // Ajout du given_name à l'URL
       const url = "_ah/api/myApi/v1/Hello" + '?access_token=' + response.credential + '&given_name=' + encodeURIComponent(responsePayload.given_name);
       fetch(url).then(response => response.text()).then(data => document.getElementById('toto').innerHTML = data);
   }

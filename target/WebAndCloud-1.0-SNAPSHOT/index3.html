@@ -15,31 +15,43 @@
 
 </head>
 <body>
-
+    <script src="https://cdn.jsdelivr.net/npm/jwt-decode/build/jwt-decode.min.js"></script>
 <script>	
 
-var DiceGame={
-  turn : 0,
-  d1 : 1,
-  d2 : 1,
-  name : 'spock',
-  score : 0,
+function getNameFromSession() {
+    try {
+        if (sessionStorage.getItem('user')) {
+            const responsePayload = jwt_decode(sessionStorage.getItem('user'));
+            return responsePayload.given_name
+        }
+    } catch (error) {
+        console.error("Error decoding JWT:", error);
+    }
+    return "error"; 
+}
 
-  play: function() {
- 	if (this.turn < 10) {
-   	  this.d1 = Math.floor((Math.random() * 5) + 1);
-	  this.d2 = Math.floor((Math.random() * 5) + 1);
-	  if (this.d1 + this.d2 == 7) {
-	    this.score += 10;
-	  }
-	  this.turn++;
-	} else {
-		Score.save(this.score,this.name);
-		this.turn=0;
-		this.score=0;
-	}
-   }
- } // DiceGame
+var DiceGame = {
+    turn: 0,
+    d1: 1,
+    d2: 1,
+    name: getNameFromSession(),
+    score: 0,
+
+    play: function() {
+        if (this.turn < 10) {
+            this.d1 = Math.floor((Math.random() * 5) + 1);
+            this.d2 = Math.floor((Math.random() * 5) + 1);
+            if (this.d1 + this.d2 == 7) {
+                this.score += 10;
+            }
+            this.turn++;
+        } else {
+            Score.save(this.score, this.name);
+            this.turn = 0;
+            this.score = 0;
+        }
+    }
+}
 
 var DiceView={
 	view: function() {
@@ -88,16 +100,21 @@ var Score = {
             console.log("my scores:", Score.myScores);
         });
     },
-    save: function(score, name) {
+    save: function(score) {
         console.log("saving...", Score.current);
-        return m.request({
-            method: "GET",
-            url: "_ah/api/myApi/v1/addScore/" + score + "/" + name,
-        })
-        .then(function(result) {
-            console.log("got:", result);
-            Score.loadList();
-        });
+        const current_name = getNameFromSession();
+        if (current_name !== "error") {
+            return m.request({
+                method: "GET",
+                url: "_ah/api/myApi/v1/addScore/" + score + "/" + current_name,
+            })
+            .then(function(result) {
+                console.log("got:", result);
+                Score.loadList();
+            });
+        } else {
+            console.log("L'utilisateur doit se connecter via OAuth.");
+        }
     }
 }
 
@@ -124,7 +141,12 @@ var ScoreView = {
 
 var MyScoreView = {
     oninit: function() {
-        Score.loadMyScores(DiceGame.name);
+        const current_name = getNameFromSession();
+        if (current_name !== "error") {
+            Score.loadMyScores(current_name);
+        } else {
+            console.log("L'utilisateur doit se connecter via OAuth pour voir ses scores.");
+        }
     },
     view: function() {
         return m('div', [
@@ -144,6 +166,7 @@ var MyScoreView = {
         ]);
     }
 }
+
 
 
 var Hello = {

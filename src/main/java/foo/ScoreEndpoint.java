@@ -122,15 +122,10 @@ public class ScoreEndpoint {
 	}
 
 	@ApiMethod(name = "addScore", httpMethod = HttpMethod.GET)
-	public Entity addScore(HttpServletRequest request, @Named("score") int score, @Named("name") String name) throws UnauthorizedException {
-		HttpSession session = request.getSession();
-		User user = (User) session.getAttribute("user");
-		String givenName = (String) session.getAttribute("givenName");
+	public Entity addScore(@Named("score") int score, @Named("name") String name) throws UnauthorizedException {
 		
-		String userName = (user != null) ? givenName : name;
-		
-		Entity e = new Entity("Score", "" + userName + score);
-		e.setProperty("name", userName);
+		Entity e = new Entity("Score", "" + name + score);
+		e.setProperty("name", name);
 		e.setProperty("score", score);
 
 		DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
